@@ -643,10 +643,11 @@ def download_and_extract_template(
         console.print("Extracting template...")
 
     def _merge_into_project(payload_root: Path) -> None:
+        resolved_project_path = project_path.resolve()
         for item in payload_root.iterdir():
-            dest_path = project_path / item.name
+            dest_path = resolved_project_path / item.name
             try:
-                if dest_path.resolve() == item.resolve():
+                if dest_path == item.resolve():
                     continue
             except FileNotFoundError:
                 pass

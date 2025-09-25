@@ -24,7 +24,11 @@ def get_repo_root() -> Path:
 
 def get_specs_root(override: str | Path | None = None) -> Path:
     if isinstance(override, Path):
-        root = (override / ".specs").expanduser().resolve()
+        # Treat path overrides as a base directory unless they already point at a
+        # '.specs' folder so callers can pass either the project root or the
+        # target specs directory explicitly.
+        expanded = override.expanduser().resolve()
+        root = expanded if expanded.name == ".specs" else (expanded / ".specs").resolve()
     else:
         base = override or os.getenv("SPEC_KIT_DIR")
         if base:
