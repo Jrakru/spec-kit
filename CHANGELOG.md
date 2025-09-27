@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- CLI entrypoint: help/UX alignment and messaging consistency (no functional changes intended).
 	- Scripts: Bash and PowerShell helpers updated for parity and declarative layout alignment.
 	- Templates/Docs: synced wording and examples with the new layout and packaging flow.
+	- Workflows: curated release packaging script to align agent list, rewrite paths for .specs/.specify, and improve extraction robustness.
 
 ### Internal
 
