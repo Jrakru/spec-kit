@@ -60,7 +60,7 @@ scripts:
 ### Documentation (this feature)
 ```
 .specs/.specify/specs/[###-feature]/
-├── plan.md              # This file (/plan command output)
+├── design.md            # This file (/plan command output)
 ├── research.md          # Phase 0 output (/plan command)
 ├── data-model.md        # Phase 1 output (/plan command)
 ├── quickstart.md        # Phase 1 output (/plan command)
