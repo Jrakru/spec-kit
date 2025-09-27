@@ -48,7 +48,7 @@ The same script is invoked locally or by CI workflows. Because it produces a pla
 
 ## Using Packaged Templates
 
-The `specify` CLI downloads these archives by default from the `github/spec-kit` releases. You can direct the CLI to alternate sources using:
+The `specify` CLI downloads these archives by default from the `Jrakru/spec-kit` releases. You can direct the CLI to alternate sources using:
 
 - `--template-repo owner/repo` or `SPEC_KIT_TEMPLATE_REPO` to pull from a forked release.
 - `--template-path /path/to/template.zip` or `SPEC_KIT_TEMPLATE_PATH` to scaffold from a local archive or directory (handy when testing output from `.genreleases/`).

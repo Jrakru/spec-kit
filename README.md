@@ -160,7 +160,7 @@ The `specify` command supports the following options:
 | `--skip-tls`           | Flag     | Skip SSL/TLS verification (not recommended)                                 |
 | `--debug`              | Flag     | Enable detailed debug output for troubleshooting                            |
 | `--github-token`       | Option   | GitHub token for API requests (or set GH_TOKEN/GITHUB_TOKEN env variable)  |
-| `--template-repo`      | Option   | Override the template release source (`owner/repo`). Defaults to `github/spec-kit` or `SPEC_KIT_TEMPLATE_REPO`. |
+| `--template-repo`      | Option   | Override the template release source (`owner/repo`). Defaults to `Jrakru/spec-kit` or `SPEC_KIT_TEMPLATE_REPO`. |
 | `--template-path`      | Option   | Use a local template ZIP or directory instead of downloading. Mirrors `SPEC_KIT_TEMPLATE_PATH`. |
 
 ### Examples

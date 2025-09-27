@@ -64,6 +64,8 @@ def _github_auth_headers(cli_token: str | None = None) -> dict:
     return {"Authorization": f"Bearer {token}"} if token else {}
 
 # Constants
+DEFAULT_TEMPLATE_REPO = "Jrakru/spec-kit"
+
 AI_CHOICES = {
     "copilot": "GitHub Copilot",
     "claude": "Claude Code",
@@ -881,7 +883,7 @@ def init(
     template_repo: Optional[str] = typer.Option(
         None,
         "--template-repo",
-        help="Override template repository in owner/repo form (defaults to github/spec-kit or SPEC_KIT_TEMPLATE_REPO)",
+        help=f"Override template repository in owner/repo form (defaults to {DEFAULT_TEMPLATE_REPO} or SPEC_KIT_TEMPLATE_REPO)",
     ),
     template_path: Optional[Path] = typer.Option(
         None,
@@ -1066,7 +1068,7 @@ def init(
     env_template_repo = os.getenv("SPEC_KIT_TEMPLATE_REPO")
     env_template_path = os.getenv("SPEC_KIT_TEMPLATE_PATH")
 
-    repo_spec = template_repo or env_template_repo or "github/spec-kit"
+    repo_spec = template_repo or env_template_repo or DEFAULT_TEMPLATE_REPO
     try:
         repo_owner, repo_name = repo_spec.split("/", 1)
     except ValueError:

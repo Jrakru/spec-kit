@@ -7,6 +7,24 @@ All notable changes to the Specify CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.20] - 2025-09-27
+
+### Added
+
+- Declarative layout support via `.specs/.specify/layout.yaml` defining `spec_roots`, `folder_strategy` (`flat`/`epic`/`product`), and canonical file names (e.g., `design.md`, `fprd.md`, `tasks.md`, `pprd.md`).
+- Runtime template resolver with assets override precedence (`.specs/.specify/templates/assets/*-template.md` before defaults).
+- New helper scripts (Bash/PowerShell): `read-layout`, `resolve-template`, `spec-root`.
+
+### Changed
+
+- Plan output renamed to `design.md`; FPRD is `fprd.md`; optional legacy stub `spec.md` retained via compatibility setting.
+- Packaging script relocates and rewrites prompts to the consolidated `.specs/.specify` structure and promotes `templates/layout.yaml` into packages.
+- Cross-shell parity for all core helpers (`check-prerequisites`, `create-new-feature`, `setup-plan`) with JSON outputs for agent orchestration.
+
+### Docs
+
+- Updated README and docs/agent-assets.md to describe the new layout, overrides, and packaging workflow.
+
 ## [0.0.19] - 2025-09-24
 
 ### Added
