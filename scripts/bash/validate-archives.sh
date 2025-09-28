@@ -4,19 +4,20 @@ set -euo pipefail
 VERSION="$1"  # expects leading v (e.g. v0.0.23)
 ls -1 .genreleases
 failures=0
-read -r -d '' AGENTS <<'CSV'
+AGENTS=$(cat <<'CSV'
 claude,.claude/commands,plan.md
-gemini,.gemini/commands/plan.toml,plan.toml
-copilot,.github/prompts/plan.prompt.md,plan.prompt.md
-cursor,.cursor/commands/plan.md,plan.md
-qwen,.qwen/commands/plan.toml,plan.toml
-opencode,.opencode/command/plan.md,plan.md
-windsurf,.windsurf/workflows/plan.md,plan.md
-codex,.codex/prompts/plan.md,plan.md
-kilocode,.kilocode/workflows/plan.md,plan.md
-auggie,.augment/commands/plan.md,plan.md
-roo,.roo/commands/plan.md,plan.md
+gemini,.gemini/commands,plan.toml
+copilot,.github/prompts,plan.prompt.md
+cursor,.cursor/commands,plan.md
+qwen,.qwen/commands,plan.toml
+opencode,.opencode/command,plan.md
+windsurf,.windsurf/workflows,plan.md
+codex,.codex/prompts,plan.md
+kilocode,.kilocode/workflows,plan.md
+auggie,.augment/commands,plan.md
+roo,.roo/commands,plan.md
 CSV
+)
 
 while IFS=',' read -r agent folder example; do
   [[ -n "$agent" ]] || continue
