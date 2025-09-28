@@ -64,7 +64,7 @@
       "_enableSearch": true,
       "_disableContribution": false,
       "_gitContribute": {
-        "repo": "{{REPOSITORY_URL}}",
+  "repo": "{{REPOSITORY_URL}}",
         "branch": "main"
       }
     }
