@@ -17,8 +17,8 @@ Execution steps:
 
 1. Run `{SCRIPT}` from the repository root ONCE and parse its JSON for `REPO_ROOT`. All subsequent paths are absolute.
 2. Determine the canonical specs root: run `scripts/bash/spec-root.sh` (or PowerShell variant) and capture its absolute output as `SPEC_ROOT`.
-3. Resolve the PPRD layout: run `scripts/bash/resolve-template.sh --json pprd` (or PowerShell) and parse `TEMPLATE_PATH`, then load the template.
-4. Read `.specs/.specify/templates/layout.yaml` (e.g., run `scripts/bash/read-layout.sh` and parse `LAYOUT_FILES_PPRD`) to locate `files.pprd`; default to `pprd.md` when unset.
+3. Resolve the PPRD template: run `scripts/bash/resolve-template.sh --json pprd` (or PowerShell) and parse `TEMPLATE_PATH`, then load the template.
+4. Read `.specs/.specify/layout.yaml` (e.g., run `scripts/bash/read-layout.sh` and parse `LAYOUT_FILES_PPRD`) to locate `files.pprd`; default to `pprd.md` when unset.
 5. Parse the user input to extract fields using the `$ARGUMENTS` contract:
    - Required: `PPRD_ID` (e.g., `001`, `2025Q1-01`) and `TITLE` (short, human readable).
    - Optional: `VIS`, `STR`, `ROAD`, `MODE`, `BRIEF`, plus section hints (`NSM`, `INPUT_METRICS`, `GUARDRAILS`, `PERSONAS`, `CAPABILITIES`, `CONSTRAINTS`, `NON_GOALS`, `RISKS`, `RELEASE`, `MEASUREMENT`).
@@ -39,7 +39,7 @@ Execution steps:
 9. If `MODE=author`, follow the AI Authoring Guide to draft every section with substantive content:
    1. Gather repository signal (best-effort):
       - Read `product/Roadmap.csv`, `product/ExperimentLedger.csv`, and `telemetry/events-template.yml` when present.
-      - Skim `ssot-templates-solo-founder/docs/` strategy/vision docs and `.specs/.specify/templates/pprd-template.md` for structure.
+   - Skim any available strategy/vision docs in the repository (e.g., under `docs/` or similar), and `.specs/.specify/templates/pprd-template.md` for structure.
    2. Use the BRIEF and section hints to ground content; only emit `TODO:` markers when critical information cannot be inferred responsibly. Each TODO must be specific.
    3. Draft sections 1–8 per guide:
       - Context & Vision: 2–3 sentences + 3–5 strategic pillars tied to north-star metrics.
