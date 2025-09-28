@@ -1285,7 +1285,7 @@ def init(
             with path.open("r", encoding="utf-8", errors="ignore") as f:
                 # Read a small header chunk
                 head = f.read(1000)
-        except Exception:
+        except (FileNotFoundError, PermissionError, UnicodeDecodeError):
             return None
         # Normalize newlines
         head = head.replace("\r\n", "\n").replace("\r", "\n")
