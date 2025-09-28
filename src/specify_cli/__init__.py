@@ -1267,15 +1267,15 @@ def init(
         if ai == "qwen":
             return (base / ".qwen/commands", "toml", ["*.toml"])
         if ai == "copilot":
-            return (base / ".github/prompts", "prompt.md", ["*.prompt.md"]) 
+            return (base / ".github/prompts", "prompt.md", ["*.prompt.md"])
         if ai == "codex":
-            return (base / ".codex/prompts", "md", ["*.md"]) 
+            return (base / ".codex/prompts", "md", ["*.md"])
         if ai == "kilocode":
-            return (base / ".kilocode/workflows", "md", ["*.md"]) 
+            return (base / ".kilocode/workflows", "md", ["*.md"])
         if ai == "auggie":
-            return (base / ".augment/commands", "md", ["*.md"]) 
+            return (base / ".augment/commands", "md", ["*.md"])
         if ai == "roo":
-            return (base / ".roo/commands", "md", ["*.md"]) 
+            return (base / ".roo/commands", "md", ["*.md"])
         # Fallback to Claude-like layout
         return (base / ".claude/commands", "md", ["*.md"])
 
