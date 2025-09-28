@@ -40,6 +40,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bumped CLI version to 0.0.24.
 
+## [0.0.26] - 2025-09-28
+
+### Templates & Packaging
+
+- Set canonical spec root to `.specs/specs` for new projects; retain legacy paths (`.specs/.specify/specs`, `./specs`) as fallbacks.
+- Promote `templates/layout.yaml` into `.specs/.specify/layout.yaml` in release packages so runtime scripts resolve `spec_roots` consistently.
+- Updated template docs/examples to reference `.specs/specs` (plan/tasks templates).
+
+### Notes
+
+- No CLI code changes in this entry; behavior comes via templates + scripts.
+
 ## [0.0.21] - 2025-09-27
 
 ### Changed
