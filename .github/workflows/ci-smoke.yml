@@ -37,7 +37,9 @@ jobs:
           AGENTS="${{ matrix.agent }}" SCRIPTS=sh .github/workflows/scripts/create-release-packages.sh "$V"
           ZIP=".genreleases/spec-kit-template-${{ matrix.agent }}-sh-${V}.zip"
           if [[ ! -f "$ZIP" ]]; then echo "Archive not found: $ZIP" >&2; exit 1; fi
-          echo "SPEC_KIT_TEMPLATE_PATH=$ZIP" >> "$GITHUB_ENV"
+          ABS_ZIP="$(realpath "$ZIP")"
+          echo "Using local template: $ABS_ZIP"
+          echo "SPEC_KIT_TEMPLATE_PATH=$ABS_ZIP" >> "$GITHUB_ENV"
       - name: Run smoke test (${{ matrix.agent }})
         run: |
           chmod +x scripts/bash/smoke-*.sh
