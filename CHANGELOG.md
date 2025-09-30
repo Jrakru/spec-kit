@@ -30,6 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- You can still override via `--template-repo` or `SPEC_KIT_TEMPLATE_REPO`.
 	- Help text updated to reflect the new default.
 
+## [0.0.25] - 2025-09-30
+
+### Added
+
+- Allow selecting multiple AI agents in a single `specify init` run by repeating `--ai` or passing bracket/comma notation. Interactive init now supports choosing additional agents without rerunning the command.
+
+### Changed
+
+- Re-running `specify init --here` with new agents now merges agent assets without overwriting existing `.specs` documents, making it safe to extend an established project.
+- `--template-path` accepts directories that contain multiple agent archives so offline multi-agent bootstrapping works without repeated downloads.
+
 ## [0.0.24] - 2025-09-28
 
 ### Added

@@ -30,8 +30,9 @@ import tempfile
 import shutil
 import shlex
 import json
+import re
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Iterable, Optional, Sequence, Tuple, List
 
 import typer
 import httpx
@@ -77,11 +78,27 @@ AI_CHOICES = {
     "auggie": "Auggie CLI",
     "roo": "Roo Code",
 }
+
+AGENT_DIRECTORY_MAP = {
+    "claude": ".claude/",
+    "gemini": ".gemini/",
+    "cursor": ".cursor/",
+    "qwen": ".qwen/",
+    "opencode": ".opencode/",
+    "codex": ".codex/",
+    "windsurf": ".windsurf/",
+    "kilocode": ".kilocode/",
+    "auggie": ".augment/",
+    "copilot": ".github/",
+    "roo": ".roo/",
+}
+
+AGENT_ROOT_NAMES = {key: Path(path).parts[0] for key, path in AGENT_DIRECTORY_MAP.items()}
 # Add script type choices
 SCRIPT_TYPE_CHOICES = {"sh": "POSIX Shell (bash/zsh)", "ps": "PowerShell"}
 
 # Keep a module version (mirrors pyproject.toml). Update alongside pyproject version bump.
-__version__ = "0.0.24"
+__version__ = "0.0.25"
 
 # Claude CLI local installation path after migrate-installer
 CLAUDE_LOCAL_PATH = Path.home() / ".claude" / "local" / "claude"
@@ -293,6 +310,68 @@ def select_with_arrows(options: dict, prompt_text: str = "Select an option", def
     # Suppress explicit selection print; tracker / later logic will report consolidated status
     return selected_key
 
+
+
+def _tokenize_ai_value(raw: str) -> List[str]:
+    """Split a raw --ai token into normalized agent keys."""
+    if raw is None:
+        return []
+    token = raw.strip()
+    if not token:
+        return []
+    if token.startswith("[") and token.endswith("]"):
+        token = token[1:-1]
+    parts = [segment.strip().strip('[]"\'"') for segment in re.split(r"[\s,]+", token) if segment.strip()]
+    return [part.lower() for part in parts if part]
+
+
+def parse_ai_option_values(raw_values: Sequence[str] | None) -> List[str]:
+    """Return ordered, deduplicated agent keys supplied via --ai."""
+    if not raw_values:
+        return []
+    ordered: List[str] = []
+    seen: set[str] = set()
+    for raw in raw_values:
+        for token in _tokenize_ai_value(raw):
+            if token not in seen:
+                ordered.append(token)
+                seen.add(token)
+    return ordered
+
+
+def human_join(items: Sequence[str]) -> str:
+    """Join values with commas and an 'and' before the final item."""
+    filtered = [item for item in items if item]
+    if not filtered:
+        return ""
+    if len(filtered) == 1:
+        return filtered[0]
+    return ", ".join(filtered[:-1]) + f", and {filtered[-1]}"
+
+
+def find_agent_template_variant(base_dir: Path, agent: str, script_type: str) -> Path | None:
+    """Locate a prebuilt agent template under base_dir for the given script type."""
+    # Prefer directories first so we avoid repeated extraction work when available.
+    dir_patterns = [
+        f"sdd-{agent}-package-{script_type}",
+        f"sdd-{agent}-package-{script_type}-*",
+    ]
+    for pattern in dir_patterns:
+        candidates = sorted(base_dir.glob(pattern))
+        for candidate in reversed(candidates):
+            if candidate.is_dir():
+                return candidate
+
+    zip_patterns = [
+        f"spec-kit-template-{agent}-{script_type}.zip",
+        f"spec-kit-template-{agent}-{script_type}-*.zip",
+    ]
+    for pattern in zip_patterns:
+        candidates = sorted(base_dir.glob(pattern))
+        for candidate in reversed(candidates):
+            if candidate.is_file():
+                return candidate
+    return None
 
 
 console = Console()
@@ -584,6 +663,9 @@ def download_and_extract_template(
     github_token: str = None,
     template_repo: Tuple[str, str] | None = None,
     template_path: Path | None = None,
+    tracker_agent_label: str | None = None,
+    top_level_filter: Sequence[str] | None = None,
+    preserve_existing_specs: bool = False,
 ) -> Path:
     """Provision project scaffolding from a release archive or local template."""
     current_dir = Path.cwd()
@@ -595,6 +677,19 @@ def download_and_extract_template(
     meta: dict = {}
     cleanup_zip = False
     using_local_template = template_path is not None
+    filtered_top_level: set[str] | None = None
+    if top_level_filter:
+        filtered_top_level = set()
+        for value in top_level_filter:
+            if not value:
+                continue
+            parts = Path(value).parts
+            filtered_top_level.add(parts[0] if parts else value)
+        if not filtered_top_level:
+            filtered_top_level = None
+
+    def _tag(detail: str) -> str:
+        return f"{tracker_agent_label} - {detail}" if tracker_agent_label else detail
 
     if template_path is not None:
         template_source = Path(template_path).expanduser().resolve()
@@ -607,10 +702,25 @@ def download_and_extract_template(
             raise typer.Exit(1)
 
         if template_source.is_dir():
+            has_direct_assets = (template_source / ".specs").exists() or (template_source / ".specify").exists()
+            if not has_direct_assets:
+                variant = find_agent_template_variant(template_source, ai_assistant, script_type)
+                if variant is None:
+                    message = (
+                        f"No template found for agent '{ai_assistant}' and script '{script_type}' in {template_source}"
+                    )
+                    if tracker:
+                        tracker.error("fetch", _tag(message))
+                    else:
+                        console.print(f"[red]{message}[/red]")
+                    raise typer.Exit(1)
+                template_source = variant
+
+        if template_source.is_dir():
             local_template_dir = template_source
             if tracker:
-                tracker.skip("fetch", "Local template directory")
-                tracker.skip("download", template_source.name)
+                tracker.skip("fetch", _tag("Local template directory"))
+                tracker.skip("download", _tag(template_source.name))
             elif verbose:
                 console.print(f"[cyan]Using local template directory:[/cyan] {template_source}")
         else:
@@ -621,13 +731,13 @@ def download_and_extract_template(
                 "release": "local",
             }
             if tracker:
-                tracker.skip("fetch", "Local template archive")
-                tracker.complete("download", zip_path.name)
+                tracker.skip("fetch", _tag("Local template archive"))
+                tracker.complete("download", _tag(zip_path.name))
             elif verbose:
                 console.print(f"[cyan]Using local template archive:[/cyan] {zip_path}")
     else:
         if tracker:
-            tracker.start("fetch", "contacting GitHub API")
+            tracker.start("fetch", _tag("contacting GitHub API"))
         try:
             zip_path, meta = download_template_from_github(
                 ai_assistant,
@@ -643,11 +753,11 @@ def download_and_extract_template(
             )
             cleanup_zip = True
             if tracker:
-                tracker.complete("fetch", f"release {meta['release']} ({meta['size']:,} bytes)")
-                tracker.complete("download", meta['filename'])
+                tracker.complete("fetch", _tag(f"release {meta['release']} ({meta['size']:,} bytes)"))
+                tracker.complete("download", _tag(meta['filename']))
         except Exception as e:
             if tracker:
-                tracker.error("fetch", str(e))
+                tracker.error("fetch", _tag(str(e)))
             else:
                 if verbose:
                     console.print(f"[red]Error downloading template:[/red] {e}")
@@ -655,19 +765,43 @@ def download_and_extract_template(
 
     if tracker:
         tracker.add("extract", "Extract template")
-        tracker.start("extract")
+        tracker.start("extract", _tag("starting"))
     elif verbose:
         console.print("Extracting template...")
+
+    def _copytree_preserve(src: Path, dest: Path) -> None:
+        """Copy directory contents but skip files that already exist at destination."""
+        if not dest.exists():
+            shutil.copytree(src, dest)
+            return
+        dest.mkdir(parents=True, exist_ok=True)
+        for child in src.iterdir():
+            target = dest / child.name
+            if child.is_dir():
+                _copytree_preserve(child, target)
+            else:
+                if target.exists():
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(child, target)
 
     def _merge_into_project(payload_root: Path) -> None:
         resolved_project_path = project_path.resolve()
         for item in payload_root.iterdir():
-            dest_path = resolved_project_path / item.name
+            name = item.name
+            if filtered_top_level is not None and name not in filtered_top_level:
+                continue
+
+            dest_path = resolved_project_path / name
             try:
                 if dest_path == item.resolve():
                     continue
             except FileNotFoundError:
                 pass
+
+            if preserve_existing_specs and name == ".specs" and dest_path.exists():
+                _copytree_preserve(item, dest_path)
+                continue
 
             if item.is_dir():
                 shutil.copytree(item, dest_path, dirs_exist_ok=True)
@@ -685,8 +819,8 @@ def download_and_extract_template(
         if local_template_dir is not None:
             extracted_items = list(local_template_dir.iterdir())
             if tracker:
-                tracker.start("zip-list")
-                tracker.complete("zip-list", f"{len(extracted_items)} items")
+                tracker.start("zip-list", _tag("listing"))
+                tracker.complete("zip-list", _tag(f"{len(extracted_items)} items"))
             payload_root = local_template_dir
         else:
             temp_dir_ctx = tempfile.TemporaryDirectory()
@@ -694,8 +828,8 @@ def download_and_extract_template(
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_contents = zip_ref.namelist()
                 if tracker:
-                    tracker.start("zip-list")
-                    tracker.complete("zip-list", f"{len(zip_contents)} entries")
+                    tracker.start("zip-list", _tag("listing"))
+                    tracker.complete("zip-list", _tag(f"{len(zip_contents)} entries"))
                 elif verbose:
                     console.print(f"[cyan]ZIP contains {len(zip_contents)} items[/cyan]")
                 zip_ref.extractall(temp_dir)
@@ -710,21 +844,21 @@ def download_and_extract_template(
         if flatten_applied:
             if tracker:
                 tracker.add("flatten", "Flatten nested directory")
-                tracker.complete("flatten")
+                tracker.complete("flatten", _tag("applied"))
             elif verbose:
                 console.print("[cyan]Flattened nested directory structure[/cyan]")
 
         _merge_into_project(payload_root)
 
         if tracker:
-            tracker.start("extracted-summary")
-            tracker.complete("extracted-summary", f"{len(list(payload_root.iterdir()))} payload items")
+            tracker.start("extracted-summary", _tag("summarizing"))
+            tracker.complete("extracted-summary", _tag(f"{len(list(payload_root.iterdir()))} payload items"))
         elif verbose:
             console.print(f"[cyan]Template files copied to {project_path}[/cyan]")
 
     except Exception as e:
         if tracker:
-            tracker.error("extract", str(e))
+            tracker.error("extract", _tag(str(e)))
         else:
             if verbose:
                 console.print(f"[red]Error extracting template:[/red] {e}")
@@ -735,7 +869,7 @@ def download_and_extract_template(
         raise typer.Exit(1)
     else:
         if tracker:
-            tracker.complete("extract")
+            tracker.complete("extract", _tag("done"))
     finally:
         if temp_dir_ctx is not None:
             temp_dir_ctx.cleanup()
@@ -743,12 +877,12 @@ def download_and_extract_template(
         if cleanup_zip and zip_path and zip_path.exists():
             zip_path.unlink()
             if tracker:
-                tracker.complete("cleanup", "Removed downloaded archive")
+                tracker.complete("cleanup", _tag("Removed downloaded archive"))
             elif verbose:
                 console.print(f"Cleaned up: {zip_path.name}")
         elif using_local_template:
             if tracker:
-                tracker.skip("cleanup", "Local template retained")
+                tracker.skip("cleanup", _tag("Local template retained"))
 
     return project_path
 
@@ -886,7 +1020,12 @@ def relocate_non_agent_directories(project_path: Path, tracker: StepTracker | No
 @app.command()
 def init(
     project_name: str = typer.Argument(None, help="Name for your new project directory (optional if using --here)"),
-    ai_assistant: str = typer.Option(None, "--ai", help="AI assistant to use: claude, gemini, copilot, cursor, qwen, opencode, codex, windsurf, kilocode, or auggie"),
+    ai_assistants: Optional[List[str]] = typer.Option(
+        None,
+        "--ai",
+        help="AI assistant(s) to use (repeat --ai or pass comma/list values). Choices: "
+             "claude, gemini, copilot, cursor, qwen, opencode, codex, windsurf, kilocode, auggie, or roo",
+    ),
     script_type: str = typer.Option(None, "--script", help="Script type to use: sh or ps"),
     ignore_agent_tools: bool = typer.Option(False, "--ignore-agent-tools", help="Skip checks for AI agent tools like Claude Code"),
     no_git: bool = typer.Option(False, "--no-git", help="Skip git repository initialization"),
@@ -911,7 +1050,7 @@ def init(
     
     This command will:
     1. Check that required tools are installed (git is optional)
-    2. Let you choose your AI assistant (Claude Code, Gemini CLI, GitHub Copilot, Cursor, Qwen Code, opencode, Codex CLI, Windsurf, Kilo Code, or Auggie CLI)
+    2. Let you choose your AI assistant(s) (Claude Code, Gemini CLI, GitHub Copilot, Cursor, Qwen Code, opencode, Codex CLI, Windsurf, Kilo Code, Auggie CLI, or Roo Code)
     3. Download the appropriate template from GitHub
     4. Extract the template to a new project directory or current directory
     5. Initialize a fresh git repository (if not --no-git and no existing repo)
@@ -922,6 +1061,7 @@ def init(
         specify init my-project --ai claude
         specify init my-project --ai gemini
         specify init my-project --ai copilot --no-git
+        specify init my-project --ai claude --ai windsurf
         specify init my-project --ai cursor
         specify init my-project --ai qwen
         specify init my-project --ai opencode
@@ -1004,62 +1144,87 @@ def init(
             console.print("[yellow]Git not found - will skip repository initialization[/yellow]")
 
     # AI assistant selection
-    if ai_assistant:
-        if ai_assistant not in AI_CHOICES:
-            console.print(f"[red]Error:[/red] Invalid AI assistant '{ai_assistant}'. Choose from: {', '.join(AI_CHOICES.keys())}")
+    selected_ais = parse_ai_option_values(ai_assistants)
+
+    if not selected_ais:
+        if sys.stdin.isatty():
+            selected_primary = select_with_arrows(
+                AI_CHOICES,
+                "Choose your AI assistant:",
+                "copilot",
+            )
+            selected_ais = [selected_primary]
+            remaining = [key for key in AI_CHOICES if key not in selected_ais]
+            while remaining and typer.confirm("Add another AI assistant?", default=False):
+                next_choice = select_with_arrows(
+                    {key: AI_CHOICES[key] for key in remaining},
+                    "Choose another AI assistant:",
+                    remaining[0],
+                )
+                selected_ais.append(next_choice)
+                remaining = [key for key in AI_CHOICES if key not in selected_ais]
+        else:
+            selected_ais = ["copilot"]
+
+    normalized_ais: List[str] = []
+    for ai_key in selected_ais:
+        if ai_key not in AI_CHOICES:
+            console.print(
+                f"[red]Error:[/red] Invalid AI assistant '{ai_key}'. Choose from: {', '.join(AI_CHOICES.keys())}"
+            )
             raise typer.Exit(1)
-        selected_ai = ai_assistant
-    else:
-        # Use arrow-key selection interface
-        selected_ai = select_with_arrows(
-            AI_CHOICES, 
-            "Choose your AI assistant:", 
-            "copilot"
-        )
+        if ai_key not in normalized_ais:
+            normalized_ais.append(ai_key)
+
+    selected_ais = normalized_ais or ["copilot"]
     
     # Check agent tools unless ignored
     if not ignore_agent_tools:
-        agent_tool_missing = False
-        install_url = ""
-        if selected_ai == "claude":
-            if not check_tool("claude", "https://docs.anthropic.com/en/docs/claude-code/setup"):
-                install_url = "https://docs.anthropic.com/en/docs/claude-code/setup"
-                agent_tool_missing = True
-        elif selected_ai == "gemini":
-            if not check_tool("gemini", "https://github.com/google-gemini/gemini-cli"):
-                install_url = "https://github.com/google-gemini/gemini-cli"
-                agent_tool_missing = True
-        elif selected_ai == "qwen":
-            if not check_tool("qwen", "https://github.com/QwenLM/qwen-code"):
-                install_url = "https://github.com/QwenLM/qwen-code"
-                agent_tool_missing = True
-        elif selected_ai == "opencode":
-            if not check_tool("opencode", "https://opencode.ai"):
-                install_url = "https://opencode.ai"
-                agent_tool_missing = True
-        elif selected_ai == "codex":
-            if not check_tool("codex", "https://github.com/openai/codex"):
-                install_url = "https://github.com/openai/codex"
-                agent_tool_missing = True
-        elif selected_ai == "auggie":
-            if not check_tool("auggie", "https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli"):
-                install_url = "https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli"
-                agent_tool_missing = True
-        # GitHub Copilot and Cursor checks are not needed as they're typically available in supported IDEs
+        for ai_key in selected_ais:
+            agent_tool_missing = False
+            install_url = ""
+            if ai_key == "claude":
+                if not check_tool("claude", "https://docs.anthropic.com/en/docs/claude-code/setup"):
+                    install_url = "https://docs.anthropic.com/en/docs/claude-code/setup"
+                    agent_tool_missing = True
+            elif ai_key == "gemini":
+                if not check_tool("gemini", "https://github.com/google-gemini/gemini-cli"):
+                    install_url = "https://github.com/google-gemini/gemini-cli"
+                    agent_tool_missing = True
+            elif ai_key == "qwen":
+                if not check_tool("qwen", "https://github.com/QwenLM/qwen-code"):
+                    install_url = "https://github.com/QwenLM/qwen-code"
+                    agent_tool_missing = True
+            elif ai_key == "opencode":
+                if not check_tool("opencode", "https://opencode.ai"):
+                    install_url = "https://opencode.ai"
+                    agent_tool_missing = True
+            elif ai_key == "codex":
+                if not check_tool("codex", "https://github.com/openai/codex"):
+                    install_url = "https://github.com/openai/codex"
+                    agent_tool_missing = True
+            elif ai_key == "auggie":
+                if not check_tool(
+                    "auggie",
+                    "https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli",
+                ):
+                    install_url = "https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli"
+                    agent_tool_missing = True
+            # GitHub Copilot, Cursor, Windsurf, and similar IDE agents do not require CLI checks
 
-        if agent_tool_missing:
-            error_panel = Panel(
-                f"[cyan]{selected_ai}[/cyan] not found\n"
-                f"Install with: [cyan]{install_url}[/cyan]\n"
-                f"{AI_CHOICES[selected_ai]} is required to continue with this project type.\n\n"
-                "Tip: Use [cyan]--ignore-agent-tools[/cyan] to skip this check",
-                title="[red]Agent Detection Error[/red]",
-                border_style="red",
-                padding=(1, 2)
-            )
-            console.print()
-            console.print(error_panel)
-            raise typer.Exit(1)
+            if agent_tool_missing:
+                error_panel = Panel(
+                    f"[cyan]{ai_key}[/cyan] not found\n"
+                    f"Install with: [cyan]{install_url}[/cyan]\n"
+                    f"{AI_CHOICES[ai_key]} is required to continue with this project type.\n\n"
+                    "Tip: Use [cyan]--ignore-agent-tools[/cyan] to skip this check",
+                    title="[red]Agent Detection Error[/red]",
+                    border_style="red",
+                    padding=(1, 2)
+                )
+                console.print()
+                console.print(error_panel)
+                raise typer.Exit(1)
     
     # Determine script type (explicit, interactive, or OS default)
     if script_type:
@@ -1076,7 +1241,8 @@ def init(
         else:
             selected_script = default_script
     
-    console.print(f"[cyan]Selected AI assistant:[/cyan] {selected_ai}")
+    selected_agent_labels = [AI_CHOICES[key] for key in selected_ais]
+    console.print(f"[cyan]Selected AI assistant(s):[/cyan] {human_join(selected_agent_labels)}")
     console.print(f"[cyan]Selected script type:[/cyan] {selected_script}")
 
     # Determine template source overrides
@@ -1101,6 +1267,12 @@ def init(
 
     if template_path_value:
         console.print(f"[cyan]Template source override:[/cyan] {template_path_value}")
+        if len(selected_ais) > 1 and template_path_value.is_file():
+            console.print(
+                "[red]Error:[/red] When supplying multiple AI assistants, --template-path must point to a directory "
+                "containing agent-specific templates."
+            )
+            raise typer.Exit(1)
     elif repo_owner != "github" or repo_name != "spec-kit":
         console.print(f"[cyan]Template repo override:[/cyan] {repo_owner}/{repo_name}")
     
@@ -1113,7 +1285,7 @@ def init(
     tracker.add("precheck", "Check required tools")
     tracker.complete("precheck", "ok")
     tracker.add("ai-select", "Select AI assistant")
-    tracker.complete("ai-select", f"{selected_ai}")
+    tracker.complete("ai-select", human_join(selected_agent_labels))
     tracker.add("script-select", "Select script type")
     tracker.complete("script-select", selected_script)
     for key, label in [
@@ -1139,19 +1311,46 @@ def init(
             local_ssl_context = ssl_context if verify else False
             local_client = httpx.Client(verify=local_ssl_context)
 
-            download_and_extract_template(
-                project_path,
-                selected_ai,
-                selected_script,
-                here,
-                verbose=False,
-                tracker=tracker,
-                client=local_client,
-                debug=debug,
-                github_token=github_token,
-                template_repo=(repo_owner, repo_name),
-                template_path=template_path_value,
-            )
+            existing_specs_present = (project_path / ".specs").exists()
+            completed_agents: list[str] = []
+
+            for idx, ai_key in enumerate(selected_ais, start=1):
+                agent_root = AGENT_ROOT_NAMES.get(ai_key)
+                top_level = None
+                if idx > 1 and agent_root:
+                    top_level = [agent_root]
+
+                preserve_specs = False
+                if idx == 1 and existing_specs_present:
+                    preserve_specs = True
+                elif idx > 1 and not agent_root:
+                    preserve_specs = True
+
+                agent_label = f"{AI_CHOICES[ai_key]} ({idx}/{len(selected_ais)})"
+
+                download_and_extract_template(
+                    project_path,
+                    ai_key,
+                    selected_script,
+                    here,
+                    verbose=False,
+                    tracker=tracker,
+                    client=local_client,
+                    debug=debug,
+                    github_token=github_token,
+                    template_repo=(repo_owner, repo_name),
+                    template_path=template_path_value,
+                    tracker_agent_label=agent_label,
+                    top_level_filter=top_level,
+                    preserve_existing_specs=preserve_specs,
+                )
+
+                completed_agents.append(ai_key)
+                existing_specs_present = existing_specs_present or (project_path / ".specs").exists()
+                if tracker:
+                    progress_note = f"{len(completed_agents)}/{len(selected_ais)} agents"
+                    for key in ("download", "extract", "zip-list", "extracted-summary"):
+                        tracker.complete(key, progress_note)
 
             # Consolidate non-agent assets under .specs/.specify
             tracker.start("relocate")
@@ -1200,25 +1399,21 @@ def init(
     console.print("\n[bold green]Project ready.[/bold green]")
     
     # Agent folder security notice
-    agent_folder_map = {
-        "claude": ".claude/",
-        "gemini": ".gemini/",
-        "cursor": ".cursor/",
-        "qwen": ".qwen/",
-        "opencode": ".opencode/",
-        "codex": ".codex/",
-        "windsurf": ".windsurf/",
-        "kilocode": ".kilocode/",
-        "auggie": ".augment/",
-        "copilot": ".github/",
-        "roo": ".roo/"
-    }
-    
-    if selected_ai in agent_folder_map:
-        agent_folder = agent_folder_map[selected_ai]
+    agent_folder_entries = [
+        (ai_key, AGENT_DIRECTORY_MAP[ai_key])
+        for ai_key in selected_ais
+        if ai_key in AGENT_DIRECTORY_MAP
+    ]
+
+    if agent_folder_entries:
+        folder_lines = "\n".join(
+            f"- [cyan]{folder}[/cyan] ({AI_CHOICES[ai_key]})"
+            for ai_key, folder in agent_folder_entries
+        )
         security_notice = Panel(
-            f"Some agents may store credentials, auth tokens, or other identifying and private artifacts in the agent folder within your project.\n"
-            f"Consider adding [cyan]{agent_folder}[/cyan] (or parts of it) to [cyan].gitignore[/cyan] to prevent accidental credential leakage.",
+            "Some agents may store credentials, auth tokens, or other identifying artifacts in your project.\n"
+            "Consider adding the following directories (or subsets) to [cyan].gitignore[/cyan]:\n"
+            f"{folder_lines}",
             title="[yellow]Agent Folder Security[/yellow]",
             border_style="yellow",
             padding=(1, 2)
@@ -1236,7 +1431,7 @@ def init(
         step_num = 2
 
     # Add Codex-specific setup step if needed
-    if selected_ai == "codex":
+    if "codex" in selected_ais:
         codex_path = project_path / ".codex"
         quoted_path = shlex.quote(str(codex_path))
         if os.name == "nt":  # Windows
@@ -1334,7 +1529,9 @@ def init(
             items.append((name, desc))
         return items
 
-    discovered = _discover_commands(selected_ai)
+    discovered_commands = {
+        ai_key: _discover_commands(ai_key) for ai_key in selected_ais
+    }
     # Sort with a preferred core order first, then alphabetical
     core_order = [
         "constitution",
@@ -1345,26 +1542,31 @@ def init(
         "analyze",
         "implement",
     ]
-    core = [c for c in discovered if c[0] in core_order]
-    extra = [c for c in discovered if c[0] not in core_order]
-    core.sort(key=lambda x: core_order.index(x[0]))
-    extra.sort(key=lambda x: x[0])
-    ordered = core + extra
-
-    steps_lines.append(f"{step_num}. Start using slash commands with your AI agent:")
+    steps_lines.append(f"{step_num}. Start using slash commands with your AI assistant(s):")
     sub_idx = 1
-    for name, desc in ordered:
-        if desc:
-            steps_lines.append(f"   {step_num}.{sub_idx} [cyan]/{name}[/] - {desc}")
-        else:
-            steps_lines.append(f"   {step_num}.{sub_idx} [cyan]/{name}[/]")
+    for ai_key in selected_ais:
+        commands = discovered_commands.get(ai_key, [])
+        if not commands:
+            continue
+        core = [c for c in commands if c[0] in core_order]
+        extra = [c for c in commands if c[0] not in core_order]
+        core.sort(key=lambda x: core_order.index(x[0]))
+        extra.sort(key=lambda x: x[0])
+        ordered = core + extra
+        agent_label = AI_CHOICES.get(ai_key, ai_key)
+        steps_lines.append(f"   {step_num}.{sub_idx} {agent_label} commands:")
+        for name, desc in ordered:
+            if desc:
+                steps_lines.append(f"      - [cyan]/{name}[/] - {desc}")
+            else:
+                steps_lines.append(f"      - [cyan]/{name}[/]")
         sub_idx += 1
 
     steps_panel = Panel("\n".join(steps_lines), title="Next Steps", border_style="cyan", padding=(1,2))
     console.print()
     console.print(steps_panel)
 
-    if selected_ai == "codex":
+    if "codex" in selected_ais:
         warning_text = """[bold yellow]Important Note:[/bold yellow]
 
 Custom prompts do not yet support arguments in Codex. You may need to manually specify additional project instructions directly in prompt files located in [cyan].codex/prompts/[/cyan].
