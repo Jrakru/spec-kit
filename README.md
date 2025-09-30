@@ -151,7 +151,7 @@ The `specify` command supports the following options:
 | Argument/Option        | Type     | Description                                                                  |
 |------------------------|----------|------------------------------------------------------------------------------|
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`)            |
-| `--ai`                 | Option   | AI assistant to use: `claude`, `gemini`, `copilot`, `cursor`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, or `roo` |
+| `--ai`                 | Option   | AI assistant(s) to use. Repeat `--ai` or pass a list/comma-separated values. Choices: `claude`, `gemini`, `copilot`, `cursor`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, or `roo`. |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                 |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                             |
 | `--no-git`             | Flag     | Skip git repository initialization                                          |
@@ -161,7 +161,7 @@ The `specify` command supports the following options:
 | `--debug`              | Flag     | Enable detailed debug output for troubleshooting                            |
 | `--github-token`       | Option   | GitHub token for API requests (or set GH_TOKEN/GITHUB_TOKEN env variable)  |
 | `--template-repo`      | Option   | Override the template release source (`owner/repo`). Defaults to `github/spec-kit` or `SPEC_KIT_TEMPLATE_REPO`. |
-| `--template-path`      | Option   | Use a local template ZIP or directory instead of downloading. Mirrors `SPEC_KIT_TEMPLATE_PATH`. |
+| `--template-path`      | Option   | Use a local template ZIP or directory instead of downloading. Mirrors `SPEC_KIT_TEMPLATE_PATH`. When selecting multiple agents, supply a directory containing the relevant agent archives. |
 
 ### Examples
 
@@ -171,6 +171,9 @@ specify init my-project
 
 # Initialize with specific AI assistant
 specify init my-project --ai claude
+
+# Initialize with multiple AI assistants in one run
+specify init my-project --ai claude --ai windsurf
 
 # Initialize with Cursor support
 specify init my-project --ai cursor
@@ -183,6 +186,9 @@ specify init my-project --ai copilot --script ps
 
 # Initialize in current directory
 specify init --here --ai copilot
+
+# Add a new agent to an existing project (preserves existing .specs content)
+specify init --here --ai windsurf --ignore-agent-tools --force
 
 # Force merge into current (non-empty) directory without confirmation
 specify init --here --force --ai copilot
@@ -306,7 +312,7 @@ specify init --here --force
 
 ![Specify CLI bootstrapping a new project in the terminal](./media/specify_cli.gif)
 
-You will be prompted to select the AI agent you are using. You can also proactively specify it directly in the terminal:
+You will be prompted to select the AI agent(s) you are using. You can also proactively supply them directly in the terminal:
 
 ```bash
 specify init <project_name> --ai claude
@@ -317,9 +323,12 @@ specify init <project_name> --ai qwen
 specify init <project_name> --ai opencode
 specify init <project_name> --ai codex
 specify init <project_name> --ai windsurf
+specify init <project_name> --ai claude --ai windsurf
 # Or in current directory:
 specify init --here --ai claude
 specify init --here --ai codex
+# Add a new agent to an existing project without overwriting specs
+specify init --here --ai windsurf --ignore-agent-tools --force
 # Force merge into a non-empty current directory
 specify init --here --force --ai claude
 ```
