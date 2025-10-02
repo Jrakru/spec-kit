@@ -7,6 +7,20 @@ All notable changes to the Specify CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.55] - 2025-10-01
+
+### Changed
+
+- Removed legacy `.specs/.specify/specs` path references from scripts
+- Simplified path resolution logic in both bash and PowerShell common scripts
+- Updated `get_feature_dir()` / `Get-FeatureDir` functions to only check two paths: `.specs/specs` (primary) and `specs` (legacy root)
+- Fixed PPRD templating and slash command integration
+
+### Notes
+
+- Path priority is now: `.specs/specs/$branch` (primary), then `specs/$branch` (legacy root fallback only)
+- The `.specs/.specify/specs` location has been completely removed from the fallback chain
+
 ## [0.0.22] - 2025-09-27
 
 ## [0.0.23] - 2025-09-28
