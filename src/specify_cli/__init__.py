@@ -32,7 +32,7 @@ import shlex
 import json
 import re
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Tuple, List
+from typing import Optional, Sequence, Tuple, List
 
 import typer
 import httpx
