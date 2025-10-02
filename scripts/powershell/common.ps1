@@ -35,8 +35,7 @@ function Get-CurrentBranch {
     $repoRoot = Get-RepoRoot
     $specsDir = Join-Path $repoRoot '.specs/specs'
     if (-not (Test-Path $specsDir)) {
-        if (Test-Path (Join-Path $repoRoot '.specs/.specify/specs')) { $specsDir = Join-Path $repoRoot '.specs/.specify/specs' } # legacy nested
-        elseif (Test-Path (Join-Path $repoRoot 'specs')) { $specsDir = Join-Path $repoRoot 'specs' } # legacy root
+        if (Test-Path (Join-Path $repoRoot 'specs')) { $specsDir = Join-Path $repoRoot 'specs' } # legacy root
     }
     
     if (Test-Path $specsDir) {
@@ -94,10 +93,8 @@ function Test-FeatureBranch {
 function Get-FeatureDir {
     param([string]$RepoRoot, [string]$Branch)
     $primaryPath = Join-Path $RepoRoot ".specs/specs/$Branch"
-    $legacyNestedPath = Join-Path $RepoRoot ".specs/.specify/specs/$Branch"
     $legacyRootPath = Join-Path $RepoRoot "specs/$Branch"
-    if ((Test-Path $primaryPath) -or ((-not (Test-Path $legacyNestedPath)) -and (-not (Test-Path $legacyRootPath)))) { return $primaryPath }
-    if (Test-Path $legacyNestedPath) { return $legacyNestedPath }
+    if ((Test-Path $primaryPath) -or (-not (Test-Path $legacyRootPath))) { return $primaryPath }
     return $legacyRootPath
 }
 
