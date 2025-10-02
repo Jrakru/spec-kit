@@ -7,6 +7,16 @@ All notable changes to the Specify CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.57] - 2025-10-02
+
+### Changed
+
+- Improved documentation for multi-agent `--ai` flag usage
+- Clarified that comma-separated agent lists must be quoted (e.g., `--ai "claude, copilot"`)
+- Updated CLI help text to show proper syntax for multiple agents
+- Added examples demonstrating both repeated `--ai` flags and quoted comma-separated lists
+- Updated README.md and docs/installation.md with clear multi-agent examples
+
 ## [0.0.56] - 2025-10-01
 
 ### Changed
