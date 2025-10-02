@@ -98,7 +98,7 @@ AGENT_ROOT_NAMES = {key: Path(path).parts[0] for key, path in AGENT_DIRECTORY_MA
 SCRIPT_TYPE_CHOICES = {"sh": "POSIX Shell (bash/zsh)", "ps": "PowerShell"}
 
 # Keep a module version (mirrors pyproject.toml). Update alongside pyproject version bump.
-__version__ = "0.0.25"
+__version__ = "0.0.57"
 
 # Claude CLI local installation path after migrate-installer
 CLAUDE_LOCAL_PATH = Path.home() / ".claude" / "local" / "claude"
@@ -1023,7 +1023,8 @@ def init(
     ai_assistants: Optional[List[str]] = typer.Option(
         None,
         "--ai",
-        help="AI assistant(s) to use (repeat --ai or pass comma/list values). Choices: "
+        help="AI assistant(s) to use. Repeat --ai for multiple, or use a quoted comma-separated list "
+             "(e.g., --ai \"claude, copilot\"). Choices: "
              "claude, gemini, copilot, cursor, qwen, opencode, codex, windsurf, kilocode, auggie, or roo",
     ),
     script_type: str = typer.Option(None, "--script", help="Script type to use: sh or ps"),
@@ -1062,6 +1063,7 @@ def init(
         specify init my-project --ai gemini
         specify init my-project --ai copilot --no-git
         specify init my-project --ai claude --ai windsurf
+        specify init my-project --ai "claude, windsurf, copilot"
         specify init my-project --ai cursor
         specify init my-project --ai qwen
         specify init my-project --ai opencode

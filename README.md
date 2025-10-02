@@ -151,7 +151,7 @@ The `specify` command supports the following options:
 | Argument/Option        | Type     | Description                                                                  |
 |------------------------|----------|------------------------------------------------------------------------------|
 | `<project-name>`       | Argument | Name for your new project directory (optional if using `--here`)            |
-| `--ai`                 | Option   | AI assistant(s) to use. Repeat `--ai` or pass a list/comma-separated values. Choices: `claude`, `gemini`, `copilot`, `cursor`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, or `roo`. |
+| `--ai`                 | Option   | AI assistant(s) to use. Repeat `--ai` for multiple values, or pass a **quoted** comma-separated list (e.g., `--ai "claude, copilot"`). Choices: `claude`, `gemini`, `copilot`, `cursor`, `qwen`, `opencode`, `codex`, `windsurf`, `kilocode`, `auggie`, or `roo`. |
 | `--script`             | Option   | Script variant to use: `sh` (bash/zsh) or `ps` (PowerShell)                 |
 | `--ignore-agent-tools` | Flag     | Skip checks for AI agent tools like Claude Code                             |
 | `--no-git`             | Flag     | Skip git repository initialization                                          |
@@ -172,8 +172,11 @@ specify init my-project
 # Initialize with specific AI assistant
 specify init my-project --ai claude
 
-# Initialize with multiple AI assistants in one run
+# Initialize with multiple AI assistants (repeated --ai flags)
 specify init my-project --ai claude --ai windsurf
+
+# Initialize with multiple AI assistants (quoted comma-separated list)
+specify init my-project --ai "claude, windsurf, copilot"
 
 # Initialize with Cursor support
 specify init my-project --ai cursor

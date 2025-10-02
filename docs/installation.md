@@ -34,6 +34,37 @@ uvx --from git+https://github.com/github/spec-kit.git specify init <project_name
 uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai copilot
 ```
 
+### Multiple AI Agents
+
+Specify supports setting up multiple AI agents in a single project. You can use either syntax:
+
+**Repeated `--ai` flags (recommended):**
+```bash
+uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai claude --ai copilot
+```
+
+**Quoted comma-separated list:**
+```bash
+uvx --from git+https://github.com/github/spec-kit.git specify init <project_name> --ai "claude, copilot, windsurf"
+```
+
+> **Important:** When using comma-separated values, you **must** quote the entire list. Without quotes, the shell will interpret commas as separate arguments and cause an error.
+
+**This will fail:**
+```bash
+# ❌ Wrong - no quotes around comma-separated list
+uvx specify init my-project --ai claude, copilot, windsurf
+```
+
+**This will work:**
+```bash
+# ✅ Correct - quoted comma-separated list
+uvx specify init my-project --ai "claude, copilot, windsurf"
+
+# ✅ Also correct - repeated flags
+uvx specify init my-project --ai claude --ai copilot --ai windsurf
+```
+
 ### Specify Script Type (Shell vs PowerShell)
 
 All automation scripts now have both Bash (`.sh`) and PowerShell (`.ps1`) variants.
