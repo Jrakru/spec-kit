@@ -30,9 +30,7 @@ get_current_branch() {
     local repo_root=$(get_repo_root)
     local specs_dir="$repo_root/.specs/specs"
     if [[ ! -d "$specs_dir" ]]; then
-        if [[ -d "$repo_root/.specs/.specify/specs" ]]; then
-            specs_dir="$repo_root/.specs/.specify/specs"  # legacy nested
-        elif [[ -d "$repo_root/specs" ]]; then
+        if [[ -d "$repo_root/specs" ]]; then
             specs_dir="$repo_root/specs"  # legacy root
         fi
     fi
@@ -92,12 +90,9 @@ get_feature_dir() {
     local repo_root="$1"
     local branch="$2"
     local primary_path="$repo_root/.specs/specs/$branch"
-    local legacy_nested_path="$repo_root/.specs/.specify/specs/$branch"
     local legacy_root_path="$repo_root/specs/$branch"
-    if [[ -d "$primary_path" ]] || { [[ ! -d "$legacy_nested_path" ]] && [[ ! -d "$legacy_root_path" ]]; }; then
+    if [[ -d "$primary_path" ]] || [[ ! -d "$legacy_root_path" ]]; then
         echo "$primary_path"
-    elif [[ -d "$legacy_nested_path" ]]; then
-        echo "$legacy_nested_path"
     else
         echo "$legacy_root_path"
     fi
